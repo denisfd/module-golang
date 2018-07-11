@@ -19,7 +19,7 @@ type Barber struct {
 	clients     chan *Client
 	wait_flag   chan byte
 	sleep_timer *time.Timer
-	mutex       *sync.Mutex
+	*sync.Mutex
 }
 
 func NewClient(name string) *Client {
@@ -31,7 +31,7 @@ func NewClient(name string) *Client {
 
 func (c *Client) go_to_barber(barber *Barber) {
 	println("+", c.name, "attempts to go to", barber.name, "barber")
-	barber.mutex.Lock()
+	barber.Lock()
 	if barber.seats_taken < barber.max_seats {
 		stop := barber.sleep_timer.Reset(0)
 		if stop {
@@ -40,11 +40,11 @@ func (c *Client) go_to_barber(barber *Barber) {
 		barber.clients <- c
 		barber.seats_taken += 1
 		println("%", c.name, "takes a seat in a queue")
-		barber.mutex.Unlock()
+		barber.Unlock()
 		<-c.served
 		println("-", c.name, "is happy and goes home")
 	} else {
-		barber.mutex.Unlock()
+		barber.Unlock()
 		println("-", c.name, "is upset cause there are no free seats, but he will try to come later")
 		timer := time.NewTimer(3 * time.Second)
 		<-timer.C
@@ -78,10 +78,14 @@ func (b *Barber) start_work() {
 }
 
 func NewBarber(name string, max int) *Barber {
-	b := Barber{name: name, max_seats: max, seats_taken: 0}
-	b.clients = make(chan *Client, max)
-	b.wait_flag = make(chan byte)
-	b.mutex = &sync.Mutex{}
+	b := Barber{
+		name:        name,
+		max_seats:   max,
+		seats_taken: 0,
+		wait_flag:   make(chan byte),
+		clients:     make(chan *Client, max),
+		Mutex:       &sync.Mutex{},
+	}
 
 	return &b
 }
