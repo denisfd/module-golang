@@ -39,7 +39,7 @@ func (c *Client) go_to_barber(barber *Barber) {
 		}
 		barber.clients <- c
 		barber.seats_taken += 1
-		println("%", c.name, "takes a seat in a queue")
+		println("%", c.name, "takes a seat in a queue,", barber.max_seats-barber.seats_taken, "free seat(s) left")
 		barber.Unlock()
 		<-c.served
 		println("-", c.name, "is happy and goes home")
@@ -59,16 +59,19 @@ func (b *Barber) start_work() {
 	b.wait_flag <- 1
 
 	for {
+		b.Lock()
 		select {
 		case c := <-b.clients:
+			b.Unlock()
 			println("$", b.name, "serves", c.name)
 			time.Sleep(1 * time.Second)
 			b.seats_taken -= 1
 			c.served <- 1
-			println("$", b.name, "served", c.name)
+			println("$", b.name, "served", c.name, ",", b.max_seats-b.seats_taken, "free seat(s) left")
 		default:
 			println("# No clients,", b.name, "decides to sleep for two seconds")
 			b.sleep_timer = time.NewTimer(2 * time.Second)
+			b.Unlock()
 			<-b.sleep_timer.C
 		}
 	}
