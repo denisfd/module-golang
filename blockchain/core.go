@@ -55,8 +55,7 @@ func send(args []string) {
 		println("send: Nothing to send")
 		return
 	}
-	mes := Message{Str: strings.Join(args[:], " ")}
-	m, _ := json.Marshal(mes)
+	m := Message{Mcode: strings.Join(args[:], " ")}
 
 	peerPool.Broadcast(m)
 }

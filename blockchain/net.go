@@ -1,12 +1,14 @@
 package main
 
 import (
+	"encoding/json"
 	"net"
 )
 
 type Message struct {
-	id  int
-	Str string
+	Len    int
+	Mcode  string
+	Blocks []Block
 }
 
 type Peer struct {
@@ -23,13 +25,14 @@ func (p *Peer) String() string {
 	return p.domain + ": " + p.addr
 }
 
-func (p *Peer) Send(m []byte) {
+func (p *Peer) Send(m Message) {
 	conn, err := net.Dial("tcp", p.addr)
 	if err != nil {
 		println("Smt bad happened, we got an error while sending to ("+p.String()+"):", err)
 		return
 	}
-	conn.Write(m)
+	j, _ := json.Marshal(m)
+	conn.Write(j)
 	conn.Close()
 }
 
@@ -48,7 +51,7 @@ func (pool *PeerPool) Print() {
 	}
 }
 
-func (pool *PeerPool) Broadcast(m []byte) {
+func (pool *PeerPool) Broadcast(m Message) {
 	for _, peer := range pool.stack {
 		peer.Send(m)
 	}
