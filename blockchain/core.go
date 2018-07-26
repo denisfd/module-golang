@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-func Listener(port string) {
+func Mailer(port string, output chan *Message, stop chan byte) {
 	ln, err := net.Listen("tcp", ":"+port)
 
 	if err != nil {
@@ -17,7 +17,6 @@ func Listener(port string) {
 		return
 	}
 
-	stop := make(chan byte, 1)
 	listenersPool[port] = stop
 	print("> listening port ", port, "\n$: ")
 
@@ -29,6 +28,7 @@ func Listener(port string) {
 		select {
 		case <-stop:
 			ln.Close()
+			println("stopping mailer")
 			delete(listenersPool, port)
 			return
 		default:
@@ -47,7 +47,24 @@ func Listener(port string) {
 			print("> error while encoding\n$: ")
 			return
 		}
-		fmt.Printf("> %+v\n$: ", message)
+		output <- (&message)
+	}
+}
+
+func Listener(port string) {
+	stop := make(chan byte, 3)
+
+	node = NewLeader(port)
+	ch := make(chan *Message, 1)
+	go Mailer(port, ch, stop)
+	for {
+		select {
+		case <-stop:
+			println("Stopping listener")
+			return
+		default:
+			node.Work(ch, stop)
+		}
 	}
 }
 
@@ -76,6 +93,8 @@ func stop(args []string) {
 
 	if presents {
 		s <- 1
+		s <- 1
+		s <- 1
 		println("## stop: stopping listenning on port", args[0])
 		(&Peer{"", "127.0.0.1:" + args[0]}).Send(&Message{}) //it is a bit tricky, but it allows to bypass net.Accept blocking
 	} else {
@@ -94,9 +113,20 @@ func send(args []string) {
 		println("## send: Nothing to send")
 		return
 	}
-	m := &Message{Mcode: strings.Join(args[:], " ")}
-
-	peerPool.Broadcast(m)
+	m := &Message{
+		Mcode:  "SEND",
+		Sender: node.Socket(),
+		Blocks: []Block{
+			Block{
+				Data: []string{strings.Join(args[:], " ")},
+			},
+		},
+	}
+	if node == nil {
+		println("Raft node is not inited, use listen to init")
+		return
+	}
+	node.Send(m)
 }
 
 func rmpeer(args []string) {
@@ -128,16 +158,21 @@ func peer(args []string) {
 	}
 }
 
-func ip(args []string) {
+func ip(args []string) string {
 	host, _ := os.Hostname()
 	addrs, _ := net.LookupIP(host)
 	for _, addr := range addrs {
 		if ipv4 := addr.To4(); ipv4 != nil {
-			fmt.Println("## IPv4:", ipv4)
-			for port, _ := range listenersPool {
-				println(" * ", ipv4.String()+":"+port)
+			saddr := ipv4.String()
+			if args == nil {
+				return saddr
 			}
-			return
+			fmt.Println("## IPv4:", saddr)
+			for port, _ := range listenersPool {
+				println(" * ", saddr+":"+port)
+			}
+			return ""
 		}
 	}
+	return ""
 }

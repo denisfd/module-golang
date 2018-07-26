@@ -11,7 +11,7 @@ import (
 var wg sync.WaitGroup
 var peerPool PeerPool
 var listenersPool = make(map[string]chan byte)
-var node *Node
+var node Node
 
 func Config() {
 	listen([]string{"7755"})
@@ -25,7 +25,7 @@ func help() {
 	println(" * peers -> display all peers")
 	println(" * rmpeer template1 template2 ... -> deletes all peers which satisfy given templates (name OR ip:port)")
 	println(" * listen port -> starts listening to given port")
-	println(" * listeners -> prints all porte you are listening to")
+	println(" * listeners -> prints all portes you are listening to")
 	println(" * stop port -> stop listening given port")
 	println(" * ip -> displays your ip and all ip:port pairs you are listening to")
 	println(" * cfg -> adds listener and peer, so you can send messages to yourself")
