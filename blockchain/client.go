@@ -12,6 +12,7 @@ var wg sync.WaitGroup
 var peerPool PeerPool
 var listenersPool = make(map[string]chan byte)
 var node Node
+var blockChain BlockChain = BlockChain{Blocks: []Block{}}
 
 func Config() {
 	listen([]string{"7755"})
@@ -64,7 +65,7 @@ func processInput() {
 			peerPool.Print()
 		case "rmpeer":
 			rmpeer(words[1:])
-		case "send":
+		case "send", "s":
 			send(words[1:])
 		case "ip":
 			ip(words[1:])

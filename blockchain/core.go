@@ -52,9 +52,9 @@ func Mailer(port string, output chan *Message, stop chan byte) {
 }
 
 func Listener(port string) {
-	stop := make(chan byte, 3)
+	stop := make(chan byte, 2)
 
-	node = NewLeader(port)
+	node = NewFollower(port)
 	ch := make(chan *Message, 1)
 	go Mailer(port, ch, stop)
 	for {
@@ -92,9 +92,9 @@ func stop(args []string) {
 	s, presents := listenersPool[args[0]]
 
 	if presents {
-		s <- 1
-		s <- 1
-		s <- 1
+		s <- 7
+		s <- 0
+		s <- 7
 		println("## stop: stopping listenning on port", args[0])
 		(&Peer{"", "127.0.0.1:" + args[0]}).Send(&Message{}) //it is a bit tricky, but it allows to bypass net.Accept blocking
 	} else {
@@ -113,6 +113,10 @@ func send(args []string) {
 		println("## send: Nothing to send")
 		return
 	}
+	if node == nil {
+		println("Raft node is not inited, use listen to init")
+		return
+	}
 	m := &Message{
 		Mcode:  "SEND",
 		Sender: node.Socket(),
@@ -122,10 +126,7 @@ func send(args []string) {
 			},
 		},
 	}
-	if node == nil {
-		println("Raft node is not inited, use listen to init")
-		return
-	}
+
 	node.Send(m)
 }
 
