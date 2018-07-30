@@ -33,8 +33,7 @@ type Scheduler struct {
 	maxSize     int
 	lastID      int
 	Jobs        chan *Job
-	Workers     map[int]*Worker //id -> Worker
-	FreeWorkers chan *Worker    //it helps to pass testcases, cause it saves the order
+	FreeWorkers chan *Worker
 	wg          sync.WaitGroup
 }
 
@@ -62,26 +61,12 @@ func NewWorker(id int) *Worker {
 	return w
 }
 
-func (w *Worker) Work(j *Job) {
-	w.status = WORKING
-	w.job <- j
-}
-
-func (w *Worker) Routine(scheduler *Scheduler) {
+func (w *Worker) Work(s *Scheduler) {
 	for {
-		select {
-		case <-w.stop:
-			fmt.Printf("worker:%d stopping\n", w.id)
-			scheduler.size -= 1
-			scheduler.wg.Done()
-			return
-		case j := <-w.job:
-			fmt.Printf("worker:%d sleep:%v\n", w.id, j.time)
-			time.Sleep(time.Duration(j.time) * time.Millisecond)
-			scheduler.wg.Done()
-			w.status = FREE
-			scheduler.FreeWorkers <- w
-		}
+		j := <-w.job
+		fmt.Printf("worker:%d sleep:%.1f\n", w.id, j.time)
+		time.Sleep(time.Millisecond * time.Duration(int(j.time*1000)))
+		s.FreeWorkers <- w
 	}
 }
 
@@ -91,14 +76,12 @@ func NewScheduler(poolSize int) *Scheduler {
 
 	s.maxSize = poolSize
 	s.Jobs = make(chan *Job, (10 + poolSize))
-	s.Workers = make(map[int]*Worker)
 	s.FreeWorkers = make(chan *Worker, poolSize)
 
 	return s
 }
 
 func (s *Scheduler) AddJob(j *Job) {
-	s.wg.Add(1)
 	s.Jobs <- j
 }
 
@@ -111,9 +94,9 @@ func (s *Scheduler) GetFreeWorker() *Worker {
 			s.size += 1
 			s.lastID += 1
 			w := NewWorker(s.lastID)
-			s.Workers[w.id] = w
 			s.wg.Add(1)
-			go w.Routine(s)
+			go w.Work(s)
+
 			return w
 		}
 	}
@@ -121,18 +104,16 @@ func (s *Scheduler) GetFreeWorker() *Worker {
 }
 
 func (s *Scheduler) Routine() {
-	for {
-		if len(s.Jobs) > 0 {
-			if w := s.GetFreeWorker(); w != nil {
-				w.Work(<-s.Jobs)
-			}
-		} else {
-			for len(s.FreeWorkers) > 0 {
-				w := <-s.FreeWorkers
-				w.stop <- 1
-				delete(s.Workers, w.id)
-			}
+	for j := range s.Jobs {
+		w := s.GetFreeWorker()
+		for ; w == nil; w = s.GetFreeWorker() {
 		}
+		w.job <- j
+	}
+	for i := 0; i < s.size; i++ {
+		w := <-s.FreeWorkers
+		fmt.Printf("worker:%d stopping\n", w.id)
+		s.wg.Done()
 	}
 }
 
@@ -146,6 +127,7 @@ func Read(scheduler *Scheduler) {
 		words := strings.Fields(text)
 
 		if len(words) == 0 {
+			close(scheduler.Jobs)
 			return
 		}
 
@@ -167,11 +149,9 @@ func Run(poolSize int) {
 	go scheduler.Routine()
 	Read(scheduler)
 
-	fmt.Printf("AWAITING\n")
 	scheduler.wg.Wait()
-	fmt.Printf("AWAITED\n")
 }
 
 func main() {
-	Run(1)
+	Run(2)
 }
