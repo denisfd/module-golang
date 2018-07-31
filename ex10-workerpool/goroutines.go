@@ -118,7 +118,8 @@ func (s *Scheduler) GetFreeWorker() *Worker {
 func (s *Scheduler) Routine() {
 	for j := range s.Jobs {
 		w := s.GetFreeWorker()
-		for ; w == nil; w = s.GetFreeWorker() {
+		if w == nil {
+			w = <-s.FreeWorkers
 		}
 		w.job <- j
 	}
@@ -153,14 +154,11 @@ func (s *Scheduler) KillFree() {
 func Read(scheduler *Scheduler) {
 	scanner := bufio.NewScanner(os.Stdin)
 
-	for {
-		scanner.Scan()
+	for scanner.Scan() {
 		text := scanner.Text()
 		words := strings.Fields(text)
-
 		if len(words) == 0 {
-			defer close(scheduler.Jobs)
-			return
+			continue
 		}
 
 		command := words[0]
@@ -180,6 +178,7 @@ func Read(scheduler *Scheduler) {
 			scheduler.AddJob(job)
 		}
 	}
+	close(scheduler.Jobs)
 }
 
 func Run(poolSize int) {
