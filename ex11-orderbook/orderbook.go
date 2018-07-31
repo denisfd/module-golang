@@ -1,16 +1,18 @@
 package orderbook
 
+import "container/list"
+
 type Orderbook struct {
 	LastID int
-	Bids   []*Order
-	Asks   []*Order
+	Bids   *list.List
+	Asks   *list.List
 }
 
 func New() *Orderbook {
 	ob := &Orderbook{}
 
-	ob.Bids = []*Order{}
-	ob.Asks = []*Order{}
+	ob.Bids = list.New()
+	ob.Asks = list.New()
 
 	return ob
 }
@@ -26,29 +28,31 @@ func (orderbook *Orderbook) Match(order *Order) ([]*Trade, *Order) {
 	return nil, nil
 }
 
-func (ob *Orderbook) Cancel(ID int) bool {
+/*func (ob *Orderbook) Cancel(ID int) bool {
 	for i, order := range ob.Bids {
 		if order.ID == ID {
-			ob.Bids = append(ob.Bids[:i], ob.Bids[i+1:]...)
+			//ob.Bids = append(ob.Bids[:i], ob.Bids[i+1:]...)
 			return true
 		}
 	}
 
 	for i, order := range ob.Asks {
 		if order.ID == ID {
-			ob.Asks = append(ob.Asks[:i], ob.Asks[i+1:]...)
+			//ob.Asks = append(ob.Asks[:i], ob.Asks[i+1:]...)
 			return true
 		}
 	}
 
 	return false
-}
+}*/
 
 func (ob *Orderbook) LimitAsk(order *Order) ([]*Trade, *Order) {
 	trades := []*Trade{}
+	var next *list.Element
 
-	for i := 0; i < len(ob.Asks); i++ {
-		ask := ob.Asks[i]
+	for el := ob.Asks.Front(); el != nil; el = next {
+		next = el.Next()
+		ask := el.Value.(*Order)
 		if order.Price == 0 || order.Price <= ask.Price {
 			trade := &Trade{
 				Price: ask.Price,
@@ -64,8 +68,7 @@ func (ob *Orderbook) LimitAsk(order *Order) ([]*Trade, *Order) {
 				trade.Volume = ask.Volume
 				order.Volume -= ask.Volume
 				ask.Volume = 0
-				ob.Asks = append(ob.Asks[:i], ob.Asks[i+1:]...)
-				i -= 1
+				ob.Asks.Remove(el)
 			}
 
 			trades = append(trades, trade)
@@ -89,9 +92,11 @@ func (ob *Orderbook) LimitAsk(order *Order) ([]*Trade, *Order) {
 
 func (ob *Orderbook) LimitBid(order *Order) ([]*Trade, *Order) {
 	trades := []*Trade{}
+	var next *list.Element
 
-	for i := 0; i < len(ob.Bids); i++ {
-		bid := ob.Bids[i]
+	for el := ob.Bids.Front(); el != nil; el = next {
+		next = el.Next()
+		bid := el.Value.(*Order)
 		if order.Price == 0 || bid.Price <= order.Price {
 			trade := &Trade{
 				Price: bid.Price,
@@ -107,8 +112,7 @@ func (ob *Orderbook) LimitBid(order *Order) ([]*Trade, *Order) {
 				trade.Volume = bid.Volume
 				order.Volume -= bid.Volume
 				bid.Volume = 0
-				ob.Bids = append(ob.Bids[:i], ob.Bids[i+1:]...)
-				i -= 1
+				ob.Bids.Remove(el)
 			}
 
 			trades = append(trades, trade)
@@ -130,24 +134,26 @@ func (ob *Orderbook) LimitBid(order *Order) ([]*Trade, *Order) {
 	return trades, nil
 }
 
-func (ob *Orderbook) AddBid(bid *Order) {
-	ob.Bids = append(ob.Bids, bid)
-	for i := len(ob.Bids) - 1; i > 0; i-- {
-		if ob.Bids[i].Price < ob.Bids[i-1].Price {
-			ob.Bids[i], ob.Bids[i-1] = ob.Bids[i-1], ob.Bids[i]
-		} else {
-			break
+func (ob *Orderbook) AddBid(new *Order) {
+	var bid *Order
+	for el := ob.Bids.Front(); el != nil; el = el.Next() {
+		bid = el.Value.(*Order)
+		if new.Price < bid.Price {
+			ob.Bids.InsertBefore(new, el)
+			return
 		}
 	}
+	ob.Bids.PushBack(new)
 }
 
-func (ob *Orderbook) AddAsk(ask *Order) {
-	ob.Asks = append(ob.Asks, ask)
-	for i := len(ob.Asks) - 1; i > 0; i-- {
-		if ob.Asks[i].Price > ob.Asks[i-1].Price {
-			ob.Asks[i], ob.Asks[i-1] = ob.Asks[i-1], ob.Asks[i]
-		} else {
-			break
+func (ob *Orderbook) AddAsk(new *Order) {
+	var ask *Order
+	for el := ob.Asks.Front(); el != nil; el = el.Next() {
+		ask = el.Value.(*Order)
+		if new.Price > ask.Price {
+			ob.Asks.InsertBefore(new, el)
+			return
 		}
 	}
+	ob.Asks.PushBack(new)
 }
