@@ -10,18 +10,32 @@ import (
 )
 
 func BenchmarkOrderbook(b *testing.B) {
-	fabric := new(fabricator)
+	fabricAsk := new(fabricator)
+	fabricBid := new(fabricator)
 
-	fabric.chances.buy = 0.5
-	fabric.chances.market = 0.5
-	fabric.volume.min = 1000
-	fabric.volume.max = 9000
-	fabric.price.min = 5000
-	fabric.price.max = 7000
+	fabricAsk.chances.buy = 0
+	fabricAsk.chances.market = 1
+	fabricAsk.volume.min = 1000
+	fabricAsk.volume.max = 9000
+	fabricAsk.price.min = 5000
+	fabricAsk.price.max = 7000
+
+	fabricBid.chances.buy = 1
+	fabricBid.chances.market = 0
+	fabricBid.volume.min = 1000
+	fabricBid.volume.max = 9000
+	fabricBid.price.min = 5000
+	fabricBid.price.max = 7000
 
 	book := New()
 
-	pipe := fabric.pipe(b.N, 1000000)
+	pipe := fabricAsk.pipe(b.N, 500000)
+
+	temp := fabricBid.pipe(b.N, 500000)
+
+	for len(temp) > 0 {
+		pipe <- (<-temp)
+	}
 
 	started := time.Now()
 	{
