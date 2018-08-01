@@ -12,31 +12,46 @@ import (
 func BenchmarkOrderbook(b *testing.B) {
 	fabricAsk := new(fabricator)
 	fabricBid := new(fabricator)
+	fabricBench := new(fabricator)
 
 	fabricAsk.chances.buy = 0
-	fabricAsk.chances.market = 1
+	fabricAsk.chances.market = 0
 	fabricAsk.volume.min = 1000
 	fabricAsk.volume.max = 9000
-	fabricAsk.price.min = 5000
+	fabricAsk.price.min = 6001
 	fabricAsk.price.max = 7000
 
 	fabricBid.chances.buy = 1
 	fabricBid.chances.market = 0
 	fabricBid.volume.min = 1000
 	fabricBid.volume.max = 9000
-	fabricBid.price.min = 5000
-	fabricBid.price.max = 7000
+	fabricBid.price.min = 5001
+	fabricBid.price.max = 6000
+
+	fabricBench.chances.buy = 0.5
+	fabricBench.chances.market = 0.5
+	fabricBench.volume.min = 1000
+	fabricBench.volume.max = 9000
+	fabricBench.price.min = 5000
+	fabricBench.price.max = 7000
 
 	book := New()
 
-	pipe := fabricAsk.pipe(b.N, 500000)
+	bids := make([]Order, 80000)
+	asks := make([]Order, 80000)
 
-	temp := fabricBid.pipe(b.N, 500000)
+	fabricBid.fabricate(bids, 1000001)
+	fabricAsk.fabricate(asks, 1000002)
 
-	for len(temp) > 0 {
-		pipe <- (<-temp)
+	for _, order := range bids {
+		book.Match(&order)
 	}
 
+	for _, order := range asks {
+		book.Match(&order)
+	}
+
+	pipe := fabricBench.pipe(b.N, 1000000)
 	started := time.Now()
 	{
 		b.ResetTimer()
@@ -47,6 +62,7 @@ func BenchmarkOrderbook(b *testing.B) {
 		}
 		b.StopTimer()
 	}
+
 	finished := time.Now()
 	elapsed := finished.Sub(started).Seconds()
 
