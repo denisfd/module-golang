@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"net"
 	"os"
 )
@@ -36,6 +37,6 @@ func main() {
 			continue
 		}
 
-		println(m.Msg)
+		fmt.Fprintf(os.Stdout, "%s\n", m.Msg)
 	}
 }
