@@ -117,11 +117,11 @@ func (s *Server) handleConn(client net.Conn) {
 		s.countFor(i)
 		elapsed := time.Since(start)
 
-		//m.Msg = fmt.Sprintf("%s ", elapsed)
+		m.Msg = fmt.Sprintf("%s ", elapsed)
 
-		m.Msg = fmt.Sprintf("%s", s.Precounted[i].value)
-
+		m.Msg += fmt.Sprintf("%s", s.Precounted[i].value)
 		e.Encode(m)
+		println("Message sent")
 	}
 }
 

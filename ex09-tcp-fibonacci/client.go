@@ -12,27 +12,25 @@ type Message struct {
 }
 
 func main() {
-	b := bufio.NewReader(os.Stdin)
-
+	scanner := bufio.NewScanner(os.Stdin)
 	conn, err := net.Dial("tcp", "127.0.0.1:7777")
 	if err != nil {
-		println("Smt bad happened, we got an error while sending to:", err)
 		return
 	}
 	defer conn.Close()
 
-	for {
-		line, _ := b.ReadBytes('\n')
-		if line[0] == 'q' {
+	for scanner.Scan() {
+		text := scanner.Text()
+		if text == "q" {
 			return
 		}
 
-		m := Message{string(line[:len(line)-1])}
+		m := Message{text}
 		e := json.NewEncoder(conn)
 		e.Encode(m)
 
 		d := json.NewDecoder(conn)
-		err := d.Decode(&m)
+		err = d.Decode(&m)
 
 		if err != nil {
 			continue
