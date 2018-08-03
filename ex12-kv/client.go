@@ -2,8 +2,12 @@ package main
 
 import (
 	"bufio"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
+	"net"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -23,14 +27,11 @@ func main() {
 		case "exit":
 			return
 
-		case "get":
-			Get(words[1:])
-		case "set":
-			Set(words[1:])
-		case "inc":
-			Inc(words[1:])
-		case "dec":
-			Dec(words[1:])
+		case "gen":
+			Gen()
+
+		case "get", "set", "inc", "dec":
+			Send(words[:])
 
 		default:
 			println("Unknown command:", words[0])
@@ -38,17 +39,48 @@ func main() {
 	}
 }
 
-func Get(args []string) {
+func Gen() {
+	u := make([]byte, 16)
+	_, err := rand.Read(u)
+	if err != nil {
+		return
+	}
 
+	u[8] = (u[8] | 0x80) & 0xBF
+	u[6] = (u[6] | 0x40) & 0x4F
+
+	println(hex.EncodeToString(u))
 }
 
-func Set(args []string) {
+func Send(args []string) {
+	if len(args) != 3 {
+		println("error, 2 args expected -> uuid value")
+		return
+	}
 
-}
-func Inc(args []string) {
+	f, err := strconv.ParseFloat(args[2], 64)
 
-}
+	if len(args[1]) != 32 {
+		println("invalid uuid")
+		return
+	}
 
-func Dec(args []string) {
+	if err != nil {
+		println("invalid value")
+		return
+	}
 
+	conn, err := net.Dial("tcp", "127.0.0.1:8888")
+	if err != nil {
+		println("error while dialing:", err)
+		return
+	}
+
+	req := &Request{}
+
+	req.Op = string(args[0][0])
+	req.Value = f
+	req.Key = args[1]
+	req.Send(conn)
+	conn.Close()
 }
