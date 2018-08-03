@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"crypto/sha256"
 	"database/sql"
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
+	"os"
 	"strings"
 )
 
@@ -38,7 +40,7 @@ func Add(args []string) {
 
 	fmt.Printf("HEAD: %+v\n", *b)
 
-	sqlAdd(NewBlock(b, data), database)
+	sqlAdd(NewBlock(b, data).MineHash(""), database)
 
 }
 
@@ -68,11 +70,10 @@ func Init(database *sql.DB) {
 			println("Empty table")
 			statement, _ := database.Prepare("CREATE TABLE IF NOT EXISTS blocks (id INTEGER PRIMARY KEY, data TEXT, curhash TEXT, prevhash TEXT)")
 			statement.Exec()
-			sqlAdd(&Block{
+			sqlAdd(((&Block{
 				Data:     "genesis",
-				CurHash:  fmt.Sprintf("%x", sha256.Sum256([]byte("genesis"))),
 				PrevHash: "",
-			}, database)
+			}).MineHash("")), database)
 			break
 		}
 	}
@@ -106,4 +107,62 @@ func Drop() {
 	database, _ := sql.Open("sqlite3", "./blocks.db")
 	statement, _ := database.Prepare("DROP TABLE IF EXISTS blocks")
 	statement.Exec()
+}
+
+func (block *Block) MineHash(diff string) *Block {
+	var counter int = 0
+	var eq bool
+	for {
+		eq = true
+		block.CurHash = fmt.Sprintf("%x", sha256.Sum256([]byte(block.PrevHash+block.Data+fmt.Sprintf("%x", counter))))
+		for i := 0; i < len(diff); i++ {
+			if diff[i] != block.CurHash[i] {
+				eq = false
+				break
+			}
+		}
+		if eq {
+			return block
+		}
+		counter += 1
+	}
+}
+
+func MineBlocks(diff string) {
+	database, _ := sql.Open("sqlite3", "./blocks.db")
+	Init(database)
+	for {
+		b := GetLastBlock(database)
+
+		new := NewBlock(b, "mined").MineHash(diff)
+		sqlAdd(new, database)
+
+		fmt.Printf("Block mined, data -> %s\n", new.Data)
+		fmt.Printf("Curhash:  %s\n", new.CurHash)
+		fmt.Printf("Prevhash: %s\n\n", new.PrevHash)
+	}
+}
+
+func Mine(args []string) {
+	if len(args) == 0 {
+		println("No difficulty specified. Specify a string to start mining (like aad0, 000000, 123412, 11, etc)")
+		return
+	}
+	diff := args[0]
+	if len(diff) > 10 {
+		println("This difficulty is toooooooo difficult......")
+		return
+	}
+
+	for i := 0; i < len(diff); i++ {
+		if (diff[i] >= 'a' && diff[i] <= 'f') || (diff[i] >= '0' && diff[i] <= '9') {
+			continue
+		}
+		println("Invalid difficulty, expected hexidecimal value")
+		return
+	}
+
+	println("press Enter to stop mining")
+	go MineBlocks(diff)
+	bufio.NewReader(os.Stdin).ReadBytes('\n')
 }

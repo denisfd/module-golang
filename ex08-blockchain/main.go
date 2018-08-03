@@ -16,6 +16,7 @@ func main() {
 		Add(os.Args[2:])
 	case "mine":
 		println("mining new blocks")
+		Mine(os.Args[2:])
 	case "list":
 		println("listing all blocks")
 		List()
