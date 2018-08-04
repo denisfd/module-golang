@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 )
 
 type Service struct {
@@ -21,8 +22,10 @@ func (s *Service) HandleConnection(client net.Conn) {
 func (s *Service) Run(port string) {
 	ln, err := net.Listen("tcp", port)
 	if err != nil {
-		panic("Cannot start litening on porti " + port)
+		panic("Cannot start litening on port " + port)
 	}
+
+	println("Listening on port", port)
 
 	for {
 		conn, _ := ln.Accept()
@@ -33,16 +36,41 @@ func (s *Service) Run(port string) {
 func NewService() *Service {
 	s := &Service{}
 
-	s.store = NewStore()
+	s.store = New(false)
 
 	return s
 }
 
 func main() {
+	scanner := bufio.NewScanner(os.Stdin)
 	node := NewService()
 
-	go node.Run(":8888")
+	for {
+		fmt.Print("$: ")
+		scanner.Scan()
+		text := scanner.Text()
+		words := strings.Fields(text)
+		if len(words) == 0 {
+			continue
+		}
 
-	println("Press ENTER to stop")
-	bufio.NewReader(os.Stdin).ReadBytes('\n')
+		switch words[0] {
+		case "exit":
+			return
+
+		case "listen":
+			node.Listen(words[1:])
+
+		default:
+			println("Unknown command:", words[0])
+		}
+	}
+}
+
+func (s *Service) Listen(args []string) {
+	/*if len(args) != 1 {
+		println("listen: One argument expected")
+		return
+	}*/
+	go s.Run(":8888")
 }
